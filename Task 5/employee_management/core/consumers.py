@@ -2,7 +2,6 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from pymongo import MongoClient
 
-# Setup MongoDB client (adjust URI as needed)
 client = MongoClient("mongodb://localhost:27017/")
 db = client['employee_management']
 chat_collection = db['chat_messages']
