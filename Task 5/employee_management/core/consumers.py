@@ -1,20 +1,43 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
+from pymongo import MongoClient
+
+# Setup MongoDB client (adjust URI as needed)
+client = MongoClient("mongodb://localhost:27017/")
+db = client['employee_management']
+chat_collection = db['chat_messages']
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.department_id = self.scope['url_route']['kwargs']['department_id']
-        self.group_name = f"department_{self.department_id}"
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        self.group_name = str(self.department_id)  # Use department PK as group name
+
+        # Join group
+        await self.channel_layer.group_add(
+            self.group_name,
+            self.channel_name
+        )
         await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        await self.channel_layer.group_discard(
+            self.group_name,
+            self.channel_name
+        )
 
     async def receive(self, text_data):
         data = json.loads(text_data)
         message = data['message']
         sender = data.get('sender', 'anonymous')
+
+        # Save to MongoDB with group name as partition key
+        chat_collection.insert_one({
+            "group": self.group_name,
+            "sender": sender,
+            "message": message
+        })
+
+        # Broadcast to group
         await self.channel_layer.group_send(
             self.group_name,
             {
